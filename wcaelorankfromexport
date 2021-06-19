@@ -68,7 +68,7 @@ for comp in comp_lst:
     new_elos = {}
     for person in result: # set rating to 1000 to new competitors
         if person[2] not in elos:
-            elos[person[2]] = (1000,0)
+            elos[person[2]] = (1000,0,0)
     for person in result:
         w_e = 0 # expected placement
         w_a = person[1] # actual placement
@@ -77,14 +77,23 @@ for comp in comp_lst:
                 w_e += 1/(1+10**((elos[person[2]][0]-elos[opp[2]][0])/400))
                 # chance to lose to this opponent
         w_e += 1 # pad (0 loss = rank 1)
-        if elos[person[2]][1] <= 30 and elos[person[2]][0] < 2300:
-            k = 80
-        if elos[person[2]][0] < 2400:
+        if elos[person[2]][1] <= 5 and elos[person[2]][2] < 1800:
+            k = 200
+        elif elos[person[2]][1] <= 10 and elos[person[2]][2] < 2000:
+            k = 150
+        elif elos[person[2]][1] <= 30 and elos[person[2]][2] < 2400:
+            k = 125
+        elif elos[person[2]][2] < 1800:
+            k = 50
+        elif elos[person[2]][2] < 2000:
             k = 40
+        elif elos[person[2]][2] < 2400:
+            k = 30
         else:
             k = 25
-        new_elos[person[2]] = (max(elos[person[2]][0] + k*(math.log(w_e)-math.log(w_a)),100),
-                               elos[person[2]][1]+1) # get new rating
+        new_elos[person[2]] = (max(elos[person[2]][0] + k*(math.log(w_e)-math.log(w_a)),100), # get new rating
+                               elos[person[2]][1]+1, # number of results
+                               max(elos[person[2]][0] + k*(math.log(w_e)-math.log(w_a)),elos[person[2]][2])) # max rating
     for person in new_elos:
         elos[person] = new_elos[person]
 
