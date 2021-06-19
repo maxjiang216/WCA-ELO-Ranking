@@ -1,0 +1,102 @@
+import datetime
+import math
+
+infile = open("WCA_export537_20210619T040002Z.tsv/WCA_export_Results.tsv",encoding='utf-8')
+
+event = '333'
+
+# group results by competition
+comps_result = {}
+people_names = {}
+for i in infile:
+    lst = i.split('\t')
+    if lst[1] == event:
+        if lst[0] not in comps_result:
+            comps_result[lst[0]] = []
+        # round, position, wca id
+        comps_result[lst[0]].append((lst[2],int(lst[3]),lst[7]))
+        people_names[lst[7]] = lst[6]  # full name of competitor
+
+for comp in comps_result:
+    new_lst = [] # lst of competitors by rank
+    results = comps_result[comp]
+    results.sort()
+    names = set()
+    round_n = {}
+    rounds = []
+    # go through final round results
+    for result in results:
+        if result[0] not in round_n:
+            round_n[result[0]] = 0
+        round_n[result[0]] += 1
+    for r in round_n:
+        rounds.append((round_n[r],r))
+    rounds.sort()
+    counter = 0
+    for r in rounds:
+        for result in results:
+            if result[0] == r[1] and result[2] not in names:
+                new_lst.append((counter,result[1],result[2]))
+                names.add(result[2])
+        counter += 1
+    comps_result[comp] = new_lst
+
+# get dates of competitions (generally by end date)
+comp_dates = {}
+infile = open("WCA_export537_20210619T040002Z.tsv/WCA_export_Competitions.tsv",encoding='utf-8')
+
+for comp in infile:
+    i = comp.split('\t')
+    if i[0] == 'id':
+        continue
+    comp_dates[i[0]] = (datetime.datetime(int(i[5]),int(i[8]),int(i[9])),
+                        datetime.datetime(int(i[5]), int(i[6]), int(i[7])))
+
+# list comps sorted by dates
+comp_lst = []
+for comp in comp_dates:
+    if comp in comps_result: # check that comp has happened
+        comp_lst.append((comp_dates[comp],comp))
+
+comp_lst.sort()
+
+# get elos
+elos = {}
+
+for comp in comp_lst:
+    result = comps_result[comp[1]]
+    new_elos = {}
+    for person in result: # set rating to 1000 to new competitors
+        if person[2] not in elos:
+            elos[person[2]] = (1000,0)
+    for person in result:
+        w_e = 0 # expected placement
+        w_a = person[1] # actual placement
+        for opp in result: # compare to each person
+            if person[2] != opp[2]: # if not same person
+                w_e += 1/(1+10**((elos[person[2]][0]-elos[opp[2]][0])/400))
+                # chance to lose to this opponent
+        w_e += 1 # pad (0 loss = rank 1)
+        if elos[person[2]][1] <= 30 and elos[person[2]][0] < 2300:
+            k = 80
+        if elos[person[2]][0] < 2400:
+            k = 40
+        else:
+            k = 25
+        new_elos[person[2]] = (max(elos[person[2]][0] + k*(math.log(w_e)-math.log(w_a)),100),
+                               elos[person[2]][1]+1) # get new rating
+    for person in new_elos:
+        elos[person] = new_elos[person]
+
+elo_rank = []
+
+for person in elos:
+    elo_rank.append((elos[person],person,people_names[person]))
+
+elo_rank.sort(reverse=True)
+
+outfile = open("WCA_ELO_Ranks_{0}.csv".format(event),'w',encoding='utf-8')
+counter = 1
+for i in elo_rank:
+    outfile.write("{0}.\t{1}\t{2}\t{3}\n".format(counter,i[1],i[2],i[0]))
+    counter += 1
