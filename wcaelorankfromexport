@@ -63,20 +63,35 @@ comp_lst.sort()
 # get elos
 elos = {}
 
+curr_date = datetime.datetime(1980,1,1)
+curr_best_rating = 0
+
+best = open("WCA_Best_ELO_Ever_{0}.csv".format(event),'w',encoding='utf-8')
+
 for comp in comp_lst:
+
+    if comp[0][0] > curr_date: # new date
+        best_person = ""
+        for person in elos:
+            if elos[person][0] > curr_best_rating:
+                curr_best_rating=elos[person][0]
+                best_person = person
+        if best_person != "":
+            best.write("{0}\t{1}\t{2}\t{3}\n".format(comp[0][0],
+                            curr_best_rating, people_names[best_person], best_person))
+
     result = comps_result[comp[1]]
     new_elos = {}
     for person in result: # set rating to 1000 to new competitors
         if person[2] not in elos:
             elos[person[2]] = (1000,0,0)
     for person in result:
-        w_e = 0 # expected placement
+        w_e = 1 # expected placement (pad by 1)
         w_a = person[1] # actual placement
         for opp in result: # compare to each person
             if person[2] != opp[2]: # if not same person
                 w_e += 1/(1+10**((elos[person[2]][0]-elos[opp[2]][0])/400))
                 # chance to lose to this opponent
-        w_e += 1 # pad (0 loss = rank 1)
         if elos[person[2]][1] <= 5 and elos[person[2]][2] < 1800:
             k = 200
         elif elos[person[2]][1] <= 10 and elos[person[2]][2] < 2000:
@@ -91,7 +106,10 @@ for comp in comp_lst:
             k = 30
         else:
             k = 25
-        new_elos[person[2]] = (max(elos[person[2]][0] + k*(math.log(w_e)-math.log(w_a)),100), # get new rating
+        adj = k*(math.log(w_e)-math.log(w_a))
+        if w_a == 1: # first place
+            adj = max(adj,1) # increase rating by at least 1
+        new_elos[person[2]] = (max(elos[person[2]][0] + adj,100), # get new rating
                                elos[person[2]][1]+1, # number of results
                                max(elos[person[2]][0] + k*(math.log(w_e)-math.log(w_a)),elos[person[2]][2])) # max rating
     for person in new_elos:
